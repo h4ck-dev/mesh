@@ -13,7 +13,6 @@ CONFIG_FILE="${INSTALL_DIR}/config.env"
 RELAY_URL="http://139.84.172.22:8000"
 NODE_NAME="drishtimesh-cowrie-node"
 SENSOR_TYPE="cowrie"
-COUNTRY="unknown"
 PROVIDER="unknown"
 REGION="unknown"
 HONEYPOT_PORT="2222"
@@ -35,25 +34,21 @@ usage() {
 DrishtiMesh Cowrie Sensor Installer
 
 Usage:
-  sudo bash install.sh --relay RELAY_URL --node-id NODE_ID --token NODE_TOKEN
+  sudo bash install.sh --name SENSOR_NAME --provider PROVIDER --region REGION
 
 Example:
-  curl -fsSL https://deploy.drishtimesh.io/install.sh | sudo bash -s -- \\
-    --relay http://139.84.172.22:8000 \\
-    --node-id 00000000-0000-0000-0000-000000000000 \\
-    --token NODE_TOKEN
+  sudo bash install.sh \\
+    --name tokyo-cowrie-01 \\
+    --provider vultr \\
+    --region tokyo
 
 Options:
-  --relay        Relay URL, default http://139.84.172.22:8000
-  --node-id      Existing registered node ID from relay
-  --token        Existing node token from relay
-  --name         Sensor name
-  --sensor-type  Sensor type, default cowrie
-  --country      Sensor country
-  --provider     VPS provider
-  --region       VPS region
-  --port         Cowrie SSH trap port, default 2222
-  -h, --help     Show help
+  --relay       Relay URL, default http://139.84.172.22:8000
+  --name        Sensor name
+  --provider    VPS provider
+  --region      VPS region
+  --port        Cowrie SSH trap port, default 2222
+  -h, --help    Show help
 USAGE
 }
 
@@ -64,24 +59,8 @@ parse_args() {
         RELAY_URL="${2:-}"
         shift 2
         ;;
-      --node-id)
-        NODE_ID="${2:-}"
-        shift 2
-        ;;
-      --token)
-        NODE_TOKEN="${2:-}"
-        shift 2
-        ;;
       --name)
         NODE_NAME="${2:-}"
-        shift 2
-        ;;
-      --sensor-type)
-        SENSOR_TYPE="${2:-}"
-        shift 2
-        ;;
-      --country)
-        COUNTRY="${2:-}"
         shift 2
         ;;
       --provider)
@@ -117,7 +96,6 @@ header() {
   echo "=================================================="
   echo " Sensor     : ${SENSOR_NAME}"
   echo " Node Name  : ${NODE_NAME}"
-  echo " Country    : ${COUNTRY}"
   echo " Provider   : ${PROVIDER}"
   echo " Region     : ${REGION}"
   echo " Relay URL  : ${RELAY_URL}"
@@ -171,11 +149,6 @@ create_layout() {
 }
 
 register_node() {
-  if [ -n "${NODE_ID}" ] && [ -n "${NODE_TOKEN}" ]; then
-    log "Using existing node credentials from command arguments..."
-    return
-  fi
-
   log "Registering sensor with DrishtiMesh relay..."
 
   RESPONSE="$(curl -fsS -X POST "${RELAY_URL}/nodes/register" \
@@ -184,12 +157,11 @@ register_node() {
       \"node_name\": \"${NODE_NAME}\",
       \"sensor_type\": \"${SENSOR_TYPE}\",
       \"provider\": \"${PROVIDER}\",
-      \"region\": \"${REGION}\",
-      \"country\": \"${COUNTRY}\"
+      \"region\": \"${REGION}\"
     }")" || fail "Node registration failed. Check relay URL."
 
-  NODE_ID="$(echo "${RESPONSE}" | jq -r '.node_id // .id // empty')"
-  NODE_TOKEN="$(echo "${RESPONSE}" | jq -r '.api_token // .token // .node_token // empty')"
+  NODE_ID="$(echo "${RESPONSE}" | jq -r '.node_id')"
+  NODE_TOKEN="$(echo "${RESPONSE}" | jq -r '.api_token')"
 
   if [ -z "${NODE_ID}" ] || [ "${NODE_ID}" = "null" ]; then
     echo "${RESPONSE}"
@@ -214,9 +186,6 @@ NODE_ID=${NODE_ID}
 NODE_TOKEN=${NODE_TOKEN}
 NODE_NAME=${NODE_NAME}
 SENSOR_TYPE=${SENSOR_TYPE}
-COUNTRY=${COUNTRY}
-PROVIDER=${PROVIDER}
-REGION=${REGION}
 INSTALL_DIR=${INSTALL_DIR}
 COWRIE_DIR=${COWRIE_DIR}
 AGENT_DIR=${AGENT_DIR}
@@ -261,10 +230,8 @@ summary() {
   echo "Config:"
   echo "  ${CONFIG_FILE}"
   echo
-  echo "Services:"
-  echo "  cowrie.service"
-  echo "  drishtimesh-agent.service"
-  echo "  drishtimesh-agent.timer"
+  echo "Next:"
+  echo "  Add Cowrie install + node-agent install + systemd services"
   echo
 }
 
@@ -297,10 +264,7 @@ install_agent() {
 RELAY_URL=${RELAY_URL}
 NODE_ID=${NODE_ID}
 NODE_TOKEN=${NODE_TOKEN}
-SENSOR_TYPE=${SENSOR_TYPE}
-COUNTRY=${COUNTRY}
-PROVIDER=${PROVIDER}
-REGION=${REGION}
+SENSOR_TYPE=cowrie
 COWRIE_JSON_PATH=${COWRIE_DIR}/var/log/cowrie/cowrie.json
 CFG
 
